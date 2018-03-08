@@ -12,33 +12,32 @@
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
+import os
+import tempfile
 
+import audio
 import images
-from credentials import credentials
+from my_credentials import credentials
 
 
 def test_get_images(credentials):
-    word_list = ['water']
-    image_files = images.get_images(word_list, credentials)
-    print image_files
-
-    if not isinstance(image_files, dict):
-        raise ValueError('`get_images` output wasn\'t a dictionary.')
-    if len(word_list) != len(image_files):
-        raise ValueError(
-            'Number of returned images wasn\'t correct. Expected %i but got %i.' % (len(word_list), len(image_files)))
+    filenames_to_write_imgs = {
+        'water': tempfile.mktemp(),
+    }
+    assert not os.path.exists(filenames_to_write_imgs['water'])
+    images.get_images(filenames_to_write_imgs, credentials)
+    assert os.path.exists(filenames_to_write_imgs['water'])
 
 
 def test_get_audio(credentials):
-    word_list = ['מים']
-    audio_files = images.get_audio(word_list, credentials)
-
-    if not isinstance(audio_files, dict):
-        raise ValueError('`get_audio` output wa\'t a dictionary.')
-    if len(word_list) != len(audio_files):
-        raise ValueError('Number of returned audio was\'nt correct.')
+    filenames_to_write_imgs = {
+        'מים': tempfile.mktemp(),
+    }
+    assert not os.path.exists(filenames_to_write_imgs['מים'])
+    audio.get_audio(word_list, credentials)
+    assert os.path.exists(filenames_to_write_imgs['מים'])
 
 
 if __name__ == '__main__':
     test_get_images(credentials)
-    #test_get_audio(credentials)
+    # test_get_audio(credentials)

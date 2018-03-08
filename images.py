@@ -19,6 +19,7 @@ https://github.com/google/google-api-python-client/blob/master/samples/customsea
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
 
+import logging
 import os
 import shutil
 import urllib
@@ -39,12 +40,16 @@ def get_images(filenames_to_write_imgs, credentials):
     Args:
         filenames_to_write_imgs: A dictionary of {English word: full filename to copy image to}.
         credentials: A object with Google CSE credentials.
+
+    Returns:
+        A list of words that failed.
     """
     # Build a service object for interacting with the API. Visit
     # the Google APIs Console <http://code.google.com/apis/console>
     # to get an API key for your own application.
     service = build("customsearch", "v1", developerKey=credentials.images.developerKey)
 
+    words_that_failed = []
     for word, destination_fn in filenames_to_write_imgs.items():
         res = service.cse().list(
             q=word,
@@ -52,7 +57,12 @@ def get_images(filenames_to_write_imgs, credentials):
             searchType="image",
             num=1).execute()
         img_url = res['items'][0]['link']
-        urllib.urlretrieve(img_url, destination_fn)
+        try:
+            urllib.urlretrieve(img_url, destination_fn)
+        except:
+            logging.error('Failed on word/url: %s/%s' % (word, img_url))
+            words_that_failed.append(word)
+    return words_that_failed
 
 
 def copy_images_from_disk(filenames_to_write_imgs, media_dir, filename_regexp="image_%s.jpg"):
@@ -69,6 +79,6 @@ def copy_images_from_disk(filenames_to_write_imgs, media_dir, filename_regexp="i
     for word, target_location in filenames_to_write_imgs.items():
         existing_filename = os.path.join(media_dir, filename_regexp % word)
         if not os.path.exists(existing_filename):
-            raise ValueError("Word %s was expecting image file %s, but it didn't "
+            raise ValueError("Word `%s` was expecting image file %s, but it didn't "
                              "exist." % (word, existing_filename))
         shutil.copyfile(existing_filename, target_location)

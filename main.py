@@ -17,8 +17,11 @@ import logging
 import os
 
 import audio as audio_lib
-from credentials import credentials
+#from credentials import credentials
+# TODO(joelshor): Don't submit wit this:
+from my_credentials import credentials
 import images as images_lib
+import translation as translate_lib
 import anki_import_csv
 
 
@@ -27,28 +30,40 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
   def __init__(self):
     super(EasyAnkiArgParser, self).__init__()
 
+    # Input arguments.
     self.add_argument(
         '--input_file',
-        default='/Users/joelshor/Desktop/anki_audio/test_file.csv',
-        help='The location of the input file. Must be a comma-separated CSV file. The format is: '
-             '`English`,`Translation without diacritics`,`Optional translation with diacritics`.')
+        default='/Users/joelshor/Desktop/anki_audio/test.csv',
+        help='The location of the input file. Must be a comma-separated CSV file. The format depends on other input '
+             'arguments.')
     self.add_argument(
-        '--output_dir',
-        default='/Users/joelshor/Library/Application Support/Anki2/Joel/collection.media',
-        help='The directory where the files will be written to disk. This will often be Anki\'s media folder.')
+        '--input_includes_translations',
+        action='store_true',
+        help='If `False`, input CSV file is just a list of newline-separated English words. If `True`, input CSV must '
+             'be in the following format: '
+             '`English`,`Translation without diacritics`,`Optional translation with diacritics`.')
+
+    # Arguments controlling media behavior.
     self.add_argument(
         '--already_downloaded_media_dir',
         default='/Users/joelshor/Desktop/anki_audio/hebrew',
         help='If non-empty, looks for appropriately named media in this folder (images and audio) instead of trying to '
              'download them.')
     self.add_argument(
-        '--output_csv_file',
-        default='/Users/joelshor/Desktop/anki_audio/hebrew/to_import.csv',
-        help='The location of the Anki import csv file to generate.')
-    self.add_argument(
         '--ignore_if_media_already_exits',
         action='store_true',
         help='Fails if any of the media files already exist, to prevent overwriting.')
+
+    # Output arguments.
+    self.add_argument(
+        '--output_dir',
+        default='/Users/joelshor/Library/Application Support/Anki2/Joel/collection.media',
+        help='The directory where the files will be written to disk. This will often be Anki\'s media folder.')
+    self.add_argument(
+        '--output_csv_file',
+        default='/Users/joelshor/Desktop/anki_audio/hebrew/to_import.csv',
+        help='The location of the Anki import csv file to generate.')
+
 
 
 NUM_INPUT_FILE_FIELDS = 3
@@ -89,6 +104,16 @@ class WordTranslationPairs(object):
     def translation_dict(self):
         return {x[self._english_index]: x[self._translation_index] for x in self.data}
 
+    def get_translation(self, english_word):
+        return self.translation_dict[english_word]
+
+    @property
+    def reverse_translation_dict(self):
+        return {x[self._translation_index]: x[self._english_index] for x in self.data}
+
+    def get_english(self, translated_word):
+        return self.reverse_translation_dict[translated_word]
+
     @property
     def extra_info(self):
         extra_info_indices = range(NUM_INPUT_FILE_FIELDS)
@@ -100,6 +125,18 @@ class WordTranslationPairs(object):
         else:
             return None
 
+    def remove_translated_word(self, translated_word):
+        index = -1
+        for i in xrange(len(self._tuple_list)):
+            tup = self._tuple_list[i]
+            if tup[self._translation_index] == translated_word:
+                index = i
+                break
+        if index == -1:
+            raise ValueError('Tried to deleted translated word `%s`, but couldn\'t find it in the word list.' %
+                             translated_word)
+        del self._tuple_list[index]
+
 
 def parse_word_translation_csv(input_filename, delimiter=","):
     """Parses input file and returns a `WordTranslationPairs`."""
@@ -110,10 +147,21 @@ def parse_word_translation_csv(input_filename, delimiter=","):
     return WordTranslationPairs(word_translation_pairs)
 
 
+def parse_english_only_csv(input_filename):
+    with open(input_filename, 'r') as f:
+        lines = f.readlines()
+    reader = csv.reader(lines, doublequote=True)
+    english_only = [row for row in reader]
+    for word in english_only:
+        if len(word) > 1:
+            raise ValueError('Malformed input: %s' % word)
+    return [x[0] for x in english_only]
+
+
 def _files_exist(filename_list):
     for filename in filename_list:
         if not os.path.exists(filename):
-            raise ValueError('%s should have existed, but it doesn\'t.')
+            raise ValueError('`%s` should have existed, but it doesn\'t.' % filename)
 
 
 def _verify_no_filename_collisions(full_filenames, target_dir, only_log_collision=False):
@@ -131,7 +179,8 @@ def _verify_no_filename_collisions(full_filenames, target_dir, only_log_collisio
     basenames = [os.path.basename(x) for x in full_filenames]
     for basename in basenames:
         if os.path.isfile(os.path.join(target_dir, basename)):
-            error_str = 'File %s already exists in %s, which is a name collision.' % (basename, target_dir)
+            error_str = 'File `%s` already exists in directory `%s`, which is a name collision.' % (
+                basename, target_dir)
             if only_log_collision:
                 logging.warning(error_str)
             else:
@@ -141,7 +190,16 @@ def _verify_no_filename_collisions(full_filenames, target_dir, only_log_collisio
 def main(argv=None):
     del argv
 
-    word_translation_pairs = parse_word_translation_csv(FLAGS.input_file)
+    # Parse input CSV file. The expected format of the input file depends on commandline arguments.
+    if FLAGS.input_includes_translations:
+        word_translation_pairs = parse_word_translation_csv(FLAGS.input_file)
+    else:
+        english_words = parse_english_only_csv(FLAGS.input_file)
+        translated_words = translate_lib.get_translations(english_words, credentials)
+        logging.info('Translated %i words.' % len(translated_words))
+        translated_words_no_diacritics = translate_lib.strip_diacritics(translated_words)
+        word_translation_pairs = WordTranslationPairs(
+            zip(english_words, translated_words_no_diacritics, translated_words))
     assert isinstance(word_translation_pairs, WordTranslationPairs)
 
     # Determine full filename where media should be written to.
@@ -165,8 +223,26 @@ def main(argv=None):
         audio_lib.copy_audio_from_disk(
             filenames_to_write_auds, FLAGS.already_downloaded_media_dir)
     else:
-        images_lib.get_images(filenames_to_write_imgs, credentials)
-        audio_lib.get_audio(filenames_to_write_auds, credentials)
+        words_without_imgs = images_lib.get_images(filenames_to_write_imgs, credentials)
+        words_without_audio = audio_lib.get_audio(filenames_to_write_auds, credentials)
+
+        # Remove words without audio from flashcard list.
+        logging.error('Couldn\'t find images for: ')
+        for english_word in words_without_imgs:
+            translated_word = word_translation_pairs.get_translation(english_word)
+            logging.error('%s / %s' % (english_word, translated_word))
+        logging.error('Couldn\'t find audio for: ')
+        for translated_word in words_without_audio:
+            english_word = word_translation_pairs.get_english(translated_word)
+            logging.error('%s / %s' % (english_word, translated_word))
+        english_words_to_remove = set(words_without_imgs) + set(
+            [word_translation_pairs.get_english(x) for x in words_without_audio])
+        for english_word in english_words_to_remove:
+            translated_word = word_translation_pairs.get_translation(english_word)
+            del filenames_to_write_auds[translated_word]
+            del filenames_to_write_imgs[english_word]
+            word_translation_pairs.remove_translated_word(translated_word)
+
     # Sanity check that all files now exist.
     _files_exist(filenames_to_write_imgs.values() + filenames_to_write_auds.values())
     logging.info('Wrote media files to: %s', FLAGS.output_dir)
@@ -188,4 +264,5 @@ def main(argv=None):
 if __name__ == "__main__":
     parser = EasyAnkiArgParser()
     FLAGS = parser.parse_args()
+    logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)  # disable annoying warning
     main()

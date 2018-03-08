@@ -21,10 +21,11 @@ def _get_forvo_url(word, api_key, language='he'):
 
 def _get_forvo_xml(word, api_key, language='he'):
     response = urllib2.urlopen(_get_forvo_url(word, api_key, language))
-    xml = response.read()
+    return response.read()
 
 
 def get_mp3_link(word, api_key, language='he'):
+    """Returns URL of top rated audio, or None."""
     xml_string = _get_forvo_xml(word, api_key, language=language)
     return _extract_mp3link_from_xml(xml_string)
 
@@ -44,6 +45,9 @@ def _extract_mp3link_from_xml(xml_string):
         rate = int(_get_and_check_unique(item, 'rate'))
         paths_and_ratings.append((rate, pathmp3))
 
-    # Return highest rated audio.
-    paths_and_ratings.sort(reverse=True)
-    return paths_and_ratings[0][1]
+    if paths_and_ratings:
+        # Return highest rated audio.
+        paths_and_ratings.sort(reverse=True)
+        return paths_and_ratings[0][1]
+    else:
+        return None
