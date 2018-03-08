@@ -1,5 +1,6 @@
 # NEAG (aNother Easy Anki Generator)
 
+By shor.joel@gmail.com (Joel Shor)
 ## Intro
 
 This project generates Anki flashcards for language learning. Some sources suggest that the
