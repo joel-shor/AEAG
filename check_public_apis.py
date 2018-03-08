@@ -24,7 +24,7 @@ from credentials import credentials
 def test_get_translate(credentials):
     word_list = ['water']
     translation_list = translation.get_translations(word_list, credentials, target_language='iw')
-    assert len(translation_list) = len(word_list)
+    assert len(translation_list) == len(word_list)
     assert translation_list[0] == 'מָיִם'
 
 
