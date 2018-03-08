@@ -15,7 +15,6 @@ import os
 import shutil
 import urllib
 
-#from yandex_translate import YandexTranslate
 import forvo_utils
 
 
@@ -34,7 +33,6 @@ def get_audio(filenames_to_write_imgs, credentials, method='Forvo'):
     """
     return {
         'Forvo': get_audio_from_forvo,
-        'Yandex': get_audio_from_yandex,
     }[method](filenames_to_write_imgs, credentials)
 
 
@@ -49,15 +47,6 @@ def get_audio_from_forvo(filenames_to_write_imgs, credentials):
             logging.warning('Couldn\'t find audio on Forvo for `%s`.' % word)
             words_without_audio.append(word)
     return words_without_audio
-
-
-def get_audio_from_yandex(filenames_to_write_imgs, credentials):
-    """Fetch audio from Yandex translate.
-
-    Examples from: https://github.com/dveselov/python-yandex-translate
-
-    Get keys from https://translate.yandex.com/developers/keys."""
-    raise ValueError('Yandex translate not supported.')
 
 
 def copy_audio_from_disk(filenames_to_write_auds, media_dir, filename_regexp="pronunciation_he_%s.mp3"):

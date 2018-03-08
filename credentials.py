@@ -23,8 +23,6 @@ credentials.images.cxString = ''
 ######### CUSTOM AUDIO SEARCH CREDENTIALS ###############
 credentials.audio = Credentials()
 
-credentials.audio.yandexKey = ''
-
 credentials.audio.forvoAPIKey = ''
 
 ######### TRANSLATION CREDENTIALS ###############
