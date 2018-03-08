@@ -23,11 +23,12 @@ import logging
 import os
 import shutil
 import urllib
+from multiprocessing import Pool
 
 from googleapiclient.discovery import build
 
 
-def get_images(filenames_to_write_imgs, credentials):
+def get_images(filenames_to_write_imgs, credentials, max_processes=100):
     """Fetch images from a Google Custom Search Engine.
 
     Based on instructions for `Custom Search` at
@@ -40,18 +41,31 @@ def get_images(filenames_to_write_imgs, credentials):
     Args:
         filenames_to_write_imgs: A dictionary of {English word: full filename to copy image to}.
         credentials: A object with Google CSE credentials.
+        max_processes: Maximum number of threads to run simultaneously.
 
     Returns:
         A list of words that failed.
     """
+    if not isinstance(filenames_to_write_imgs, dict):
+        raise ValueError('`filenames_to_write_imgs` must be a dict. Instead, was %s' % type(filenames_to_write_imgs))
     # Build a service object for interacting with the API. Visit
     # the Google APIs Console <http://code.google.com/apis/console>
     # to get an API key for your own application.
     service = build("customsearch", "v1", developerKey=credentials.images.developerKey)
 
-    words_that_failed = []
-    # TODO(joelshor): This is embarassingly parallelizable. Do so please.
-    for word, destination_fn in filenames_to_write_imgs.items():
+    # Build a pool of works to fetch many images in parallel.
+    pool = Pool(processes=max_processes)
+
+    def _fetch_single_image(word_and_destination_fn):
+        """Copies a web image to a destination on the local disk.
+
+        Args:
+            word_and_destination_fn: (word, destination filename)
+
+        Returns:
+            `word` if the fetch failed, else `None`.
+        """
+        word, destination_fn = word_and_destination_fn
         res = service.cse().list(
             q=word,
             cx=credentials.images.cxString,
@@ -64,7 +78,11 @@ def get_images(filenames_to_write_imgs, credentials):
             print('retrieved: ', word)
         except:
             logging.error('Failed on word/url: %s/%s' % (word, img_url))
-            words_that_failed.append(word)
+            return word
+        return None
+
+    words_that_failed = pool.map(_fetch_single_image, filenames_to_write_imgs.items(), chunksize=1)
+    words_that_failed = filter(lambda a: a != None, words_that_failed)
     return words_that_failed
 
 

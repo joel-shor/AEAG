@@ -26,3 +26,9 @@ credentials.audio = Credentials()
 credentials.audio.yandexKey = ''
 
 credentials.audio.forvoAPIKey = ''
+
+######### TRANSLATION CREDENTIALS ###############
+credentials.translate = Credentials()
+
+# Same as `credentials.images.developerKey` above.
+credentials.translate.developerKey = credentials.images.developerKey

@@ -17,7 +17,15 @@ import tempfile
 
 import audio
 import images
-from my_credentials import credentials
+import translation
+from credentials import credentials
+
+
+def test_get_translate(credentials):
+    word_list = ['water']
+    translation_list = translation.get_translations(word_list, credentials, target_language='iw')
+    assert len(translation_list) = len(word_list)
+    assert translation_list[0] == 'מָיִם'
 
 
 def test_get_images(credentials):
@@ -40,4 +48,5 @@ def test_get_audio(credentials):
 
 if __name__ == '__main__':
     test_get_images(credentials)
-    # test_get_audio(credentials)
+    test_get_audio(credentials)
+    print('All tests succeeded.')
