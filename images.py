@@ -50,6 +50,7 @@ def get_images(filenames_to_write_imgs, credentials):
     service = build("customsearch", "v1", developerKey=credentials.images.developerKey)
 
     words_that_failed = []
+    # TODO(joelshor): This is embarassingly parallelizable. Do so please.
     for word, destination_fn in filenames_to_write_imgs.items():
         res = service.cse().list(
             q=word,
@@ -58,7 +59,9 @@ def get_images(filenames_to_write_imgs, credentials):
             num=1).execute()
         img_url = res['items'][0]['link']
         try:
+            print('about to retrieve: ', word)
             urllib.urlretrieve(img_url, destination_fn)
+            print('retrieved: ', word)
         except:
             logging.error('Failed on word/url: %s/%s' % (word, img_url))
             words_that_failed.append(word)

@@ -18,7 +18,7 @@ import os
 
 import audio as audio_lib
 #from credentials import credentials
-# TODO(joelshor): Don't submit wit this:
+# TODO(joelshor): Don't submit with this:
 from my_credentials import credentials
 import images as images_lib
 import translation as translate_lib
@@ -46,13 +46,9 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
     # Arguments controlling media behavior.
     self.add_argument(
         '--already_downloaded_media_dir',
-        default='/Users/joelshor/Desktop/anki_audio/hebrew',
+        default='',
         help='If non-empty, looks for appropriately named media in this folder (images and audio) instead of trying to '
              'download them.')
-    self.add_argument(
-        '--ignore_if_media_already_exits',
-        action='store_true',
-        help='Fails if any of the media files already exist, to prevent overwriting.')
 
     # Output arguments.
     self.add_argument(
@@ -163,28 +159,22 @@ def _files_exist(filename_list):
         if not os.path.exists(filename):
             raise ValueError('`%s` should have existed, but it doesn\'t.' % filename)
 
-
-def _verify_no_filename_collisions(full_filenames, target_dir, only_log_collision=False):
-    """Verifies that there are no filename collisions.
+def remove_existing_filenames(full_filenames, target_dir):
+    """Removes arguments corresponding to media that already exists.
 
     Args:
-        full_filenames: A list of strings of full or partial filenames.
+        filename_dict: A dictionary of {word: filenames}.
         target_dir: The directory to check for name collisions.
-        fail_on_collision: If `True`, throw exception if any file already exists. Otherwise, just log it.
 
     Raises:
         ValueError: If any file in `target_dir` has the same basename as any
             files in `full_filenames`.
     """
-    basenames = [os.path.basename(x) for x in full_filenames]
-    for basename in basenames:
+    basenames = {k: os.path.basename(v) for k, v in full_filenames.items()}
+    for word, basename in basenames.items():
         if os.path.isfile(os.path.join(target_dir, basename)):
-            error_str = 'File `%s` already exists in directory `%s`, which is a name collision.' % (
-                basename, target_dir)
-            if only_log_collision:
-                logging.warning(error_str)
-            else:
-                raise ValueError(error_str)
+            del full_filenames[word]
+            logging.info('%s already exists, so deleting %s.' % (basename, word))
 
 
 def main(argv=None):
@@ -209,11 +199,10 @@ def main(argv=None):
     filenames_to_write_auds = {
         word: os.path.join(FLAGS.output_dir, AUDIO_FILENAME_FORMAT % word) for word in
         word_translation_pairs.translations}
-    # Check that there aren't filename collisions.
-    _verify_no_filename_collisions(
-        filenames_to_write_imgs.values(), FLAGS.output_dir, FLAGS.ignore_if_media_already_exits)
-    _verify_no_filename_collisions(
-        filenames_to_write_auds.values(), FLAGS.output_dir, FLAGS.ignore_if_media_already_exits)
+    # Remove entries corresponding to media that already exists.
+    # NOTE: This function modifies the first argument.
+    remove_existing_filenames(filenames_to_write_imgs, FLAGS.output_dir)
+    remove_existing_filenames(filenames_to_write_auds, FLAGS.output_dir)
 
     # Get images, and audio.
     # TODO(joelshor): Try to combine approaches and fetch media if it doesn't exist.
@@ -235,8 +224,8 @@ def main(argv=None):
         for translated_word in words_without_audio:
             english_word = word_translation_pairs.get_english(translated_word)
             logging.error('%s / %s' % (english_word, translated_word))
-        english_words_to_remove = set(words_without_imgs) + set(
-            [word_translation_pairs.get_english(x) for x in words_without_audio])
+        english_words_to_remove = set(words_without_imgs).union(
+            set([word_translation_pairs.get_english(x) for x in words_without_audio]))
         for english_word in english_words_to_remove:
             translated_word = word_translation_pairs.get_translation(english_word)
             del filenames_to_write_auds[translated_word]

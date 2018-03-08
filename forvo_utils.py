@@ -10,6 +10,7 @@ pip install yandex_speech
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
 
+import logging
 import urllib2
 import xml.etree.ElementTree as ET
 
@@ -20,7 +21,12 @@ def _get_forvo_url(word, api_key, language='he'):
 
 
 def _get_forvo_xml(word, api_key, language='he'):
-    response = urllib2.urlopen(_get_forvo_url(word, api_key, language))
+    forvo_url = _get_forvo_url(word, api_key, language)
+    try:
+        response = urllib2.urlopen(forvo_url)
+    except:
+        logging.error('Failed to fetch Forvo URL, possibly because daily limit was reached: %s' % forvo_url)
+        raise
     return response.read()
 
 
