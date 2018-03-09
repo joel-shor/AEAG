@@ -53,6 +53,12 @@ Once your credentials are added, check that the APIs are as expected:
 python check_public_apis.py
 ```
 
+You can also check that the code hasn't suffered from bit rot:
+
+```
+./run_unittests.sh
+```
+
 ### Generating cards
 
 There are two main modes. One does all the above. The second assumes you've already
