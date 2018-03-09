@@ -7,6 +7,7 @@ The program does the following:
 4) Writes everything to a target directory.
 5) Writes a CSV with the card info that can be imported into an Anki deck.
 '''
+# TODO(joelshor): If the downloaded image isn't a jpg, images breaks.
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
@@ -47,6 +48,12 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
         default='',
         help='If non-empty, looks for appropriately named media in this folder (images and audio) instead of trying to '
              'download them.')
+    self.add_argument(
+        '--disable_image_fetching',
+        action='store_true',
+        help='If `True`, don\'t fetch or copy images. Images pose a difficult semantic problem, since top image '
+             'search results are often pop-culture references, and not really what we want.'
+             'NOTE: we still write image file locations to the Anki import CSV, but we can simply ignore it on import.')
 
     # Output arguments.
     self.add_argument(
@@ -58,9 +65,17 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
         default='',
         help='The location of the Anki import csv file to generate.')
 
+    # Debug arguments.
+    self.add_argument(
+        '--log',
+        default='WARNING',
+        help='The level of logging to display ex INFO or DEBUG.')
+
 
 
 NUM_INPUT_FILE_FIELDS = 3
+# TODO(joelshor): This is a bug; some fetched images have different file formats (ex png),
+# and saving them as `jpg` causes them to be unreadable. Fix this.
 IMAGE_FILENAME_FORMAT = '%s.jpg'  # image filename to write if fetched from web
 AUDIO_FILENAME_FORMAT = '%s.mp3'  # audio filename to write if fetched from web
 
@@ -75,12 +90,12 @@ class WordTranslationPairs(object):
     def _validate_tuple_list(self):
         """Check that tuples have the right number of elements."""
         assert self._tuple_list
-        for tuple in self._tuple_list:
-            if len(tuple) != NUM_INPUT_FILE_FIELDS:
+        for tpl in self._tuple_list:
+            if len(tpl) != NUM_INPUT_FILE_FIELDS:
                 raise ValueError(
                     "Tuple %s had %i fields instead of the expected "
-                    "number: %i" % (tuple, len(tuple), NUM_INPUT_FILE_FIELDS))
-            assert len(tuple) == NUM_INPUT_FILE_FIELDS
+                    "number: %i" % (tpl, len(tpl), NUM_INPUT_FILE_FIELDS))
+            assert len(tpl) == NUM_INPUT_FILE_FIELDS
 
     @property
     def english_words(self):
@@ -114,7 +129,7 @@ class WordTranslationPairs(object):
         extra_info_indices.remove(self._english_index)
         extra_info_indices.remove(self._translation_index)
         if extra_info_indices:
-            return {x[self._english_index]: (x[i] for i in extra_info_indices)
+            return {x[self._english_index]: [x[i] for i in extra_info_indices]
                     for x in self.data}
         else:
             return None
@@ -157,6 +172,7 @@ def _files_exist(filename_list):
         if not os.path.exists(filename):
             raise ValueError('`%s` should have existed, but it doesn\'t.' % filename)
 
+
 def remove_existing_filenames(full_filenames, target_dir):
     """Removes arguments corresponding to media that already exists.
 
@@ -191,47 +207,57 @@ def main(argv=None):
     assert isinstance(word_translation_pairs, WordTranslationPairs)
 
     # Determine full filename where media should be written to.
+    # If the media is already fetched, we still want to write it to the CSV, but we don't want to fetch it.
     filenames_to_write_imgs = {
         word: os.path.join(FLAGS.output_dir, IMAGE_FILENAME_FORMAT % word) for word in
         word_translation_pairs.english_words}
     filenames_to_write_auds = {
         word: os.path.join(FLAGS.output_dir, AUDIO_FILENAME_FORMAT % word) for word in
         word_translation_pairs.translations}
-    # Remove entries corresponding to media that already exists.
+
+    # The media we write might be different than the media that we fetch, if some media already exists. Make a copy
+    # of the media list so we can track media to fetch, and remove entries corresponding to media that already exists.
+    if FLAGS.disable_image_fetching:
+        filenames_to_fetch_imgs = {}
+    else:
+        filenames_to_fetch_imgs = {k: v for k, v in filenames_to_write_imgs.items()}
+    filenames_to_fetch_auds = {k: v for k, v in filenames_to_write_auds.items()}
     # NOTE: This function modifies the first argument.
-    remove_existing_filenames(filenames_to_write_imgs, FLAGS.output_dir)
-    remove_existing_filenames(filenames_to_write_auds, FLAGS.output_dir)
+    remove_existing_filenames(filenames_to_fetch_imgs, FLAGS.output_dir)
+    remove_existing_filenames(filenames_to_fetch_auds, FLAGS.output_dir)
 
     # Get images, and audio.
     # TODO(joelshor): Try to combine approaches and fetch media if it doesn't exist.
     if FLAGS.already_downloaded_media_dir:
         images_lib.copy_images_from_disk(
-            filenames_to_write_imgs, FLAGS.already_downloaded_media_dir)
+            filenames_to_fetch_imgs, FLAGS.already_downloaded_media_dir)
         audio_lib.copy_audio_from_disk(
-            filenames_to_write_auds, FLAGS.already_downloaded_media_dir)
+            filenames_to_fetch_auds, FLAGS.already_downloaded_media_dir)
     else:
-        words_without_imgs = images_lib.get_images(filenames_to_write_imgs, credentials)
-        words_without_audio = audio_lib.get_audio(filenames_to_write_auds, credentials)
+        words_without_imgs = images_lib.get_images(filenames_to_fetch_imgs, credentials)
+        words_without_audio = audio_lib.get_audio(filenames_to_fetch_auds, credentials)
 
-        # Remove words without audio from flashcard list.
-        logging.error('Couldn\'t find images for: ')
+        # Remove words without audio or image from flashcard list *to write to csv*.
         for english_word in words_without_imgs:
             translated_word = word_translation_pairs.get_translation(english_word)
-            logging.error('%s / %s' % (english_word, translated_word))
-        logging.error('Couldn\'t find audio for: ')
+            logging.error('Couldn\'t find images for: %s / %s' % (english_word, translated_word))
         for translated_word in words_without_audio:
             english_word = word_translation_pairs.get_english(translated_word)
-            logging.error('%s / %s' % (english_word, translated_word))
+            logging.error('Couldn\'t find audio for:  %s / %s' % (english_word, translated_word))
         english_words_to_remove = set(words_without_imgs).union(
             set([word_translation_pairs.get_english(x) for x in words_without_audio]))
         for english_word in english_words_to_remove:
             translated_word = word_translation_pairs.get_translation(english_word)
-            del filenames_to_write_auds[translated_word]
-            del filenames_to_write_imgs[english_word]
+            if translated_word in filenames_to_write_auds:
+                del filenames_to_write_auds[translated_word]
+            if english_word in filenames_to_write_imgs:
+                del filenames_to_write_imgs[english_word]
             word_translation_pairs.remove_translated_word(translated_word)
 
     # Sanity check that all files now exist.
-    _files_exist(filenames_to_write_imgs.values() + filenames_to_write_auds.values())
+    if not FLAGS.disable_image_fetching:
+        _files_exist(filenames_to_write_imgs.values())
+        _files_exist(filenames_to_write_auds.values())
     logging.info('Wrote media files to: %s', FLAGS.output_dir)
 
     # Write CSV that can be imported into an Anki deck.
@@ -245,11 +271,19 @@ def main(argv=None):
     with open(FLAGS.output_csv_file, 'w') as csvfile:
         writer = csv.writer(csvfile, dialect='mydialect')
         writer.writerows(csv_rows)
-    logging.info('Wrote Anki import csv to: %s', FLAGS.output_csv_file)
+    logging.warning('Wrote Anki import csv to: %s', FLAGS.output_csv_file)
+
+
+def set_logging_level(log_level):
+    numeric_level = getattr(logging, log_level.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % log_level)
+    logging.basicConfig(level=numeric_level)
 
 
 if __name__ == "__main__":
     parser = EasyAnkiArgParser()
     FLAGS = parser.parse_args()
     logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)  # disable annoying warning
+    set_logging_level(FLAGS.log)
     main()
