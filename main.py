@@ -17,9 +17,7 @@ import logging
 import os
 
 import audio as audio_lib
-#from credentials import credentials
-# TODO(joelshor): Don't submit with this:
-from my_credentials import credentials
+from credentials import credentials
 import images as images_lib
 import translation as translate_lib
 import anki_import_csv
@@ -33,7 +31,7 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
     # Input arguments.
     self.add_argument(
         '--input_file',
-        default='/Users/joelshor/Desktop/anki_audio/test.csv',
+        default='',
         help='The location of the input file. Must be a comma-separated CSV file. The format depends on other input '
              'arguments.')
     self.add_argument(
@@ -53,11 +51,11 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
     # Output arguments.
     self.add_argument(
         '--output_dir',
-        default='/Users/joelshor/Library/Application Support/Anki2/Joel/collection.media',
+        default='',
         help='The directory where the files will be written to disk. This will often be Anki\'s media folder.')
     self.add_argument(
         '--output_csv_file',
-        default='/Users/joelshor/Desktop/anki_audio/hebrew/to_import.csv',
+        default='',
         help='The location of the Anki import csv file to generate.')
 
 
