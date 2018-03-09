@@ -172,6 +172,15 @@ def _files_exist(filename_list):
         if not os.path.exists(filename):
             raise ValueError('`%s` should have existed, but it doesn\'t.' % filename)
 
+def _remove_words(english_words_to_remove, filenames_to_write_auds, filenames_to_write_imgs, word_translation_pairs):
+    for english_word in english_words_to_remove:
+        translated_word = word_translation_pairs.get_translation(english_word)
+        if translated_word in filenames_to_write_auds:
+            del filenames_to_write_auds[translated_word]
+        if english_word in filenames_to_write_imgs:
+            del filenames_to_write_imgs[english_word]
+        word_translation_pairs.remove_translated_word(translated_word)
+
 
 def remove_existing_filenames(full_filenames, target_dir):
     """Removes arguments corresponding to media that already exists.
@@ -189,6 +198,14 @@ def remove_existing_filenames(full_filenames, target_dir):
         if os.path.isfile(os.path.join(target_dir, basename)):
             del full_filenames[word]
             logging.info('%s already exists, so deleting %s.' % (basename, word))
+
+
+def _write_csv_rows(csv_rows, output_csv_file):
+    # We need to set a custom dialect to avoid double-quoting quotation marks.
+    csv.register_dialect('mydialect', delimiter=';', doublequote=False, quotechar='\'')
+    with open(output_csv_file, 'w') as csvfile:
+        writer = csv.writer(csvfile, dialect='mydialect')
+        writer.writerows(csv_rows)
 
 
 def main(argv=None):
@@ -239,25 +256,18 @@ def main(argv=None):
 
         # Remove words without audio or image from flashcard list *to write to csv*.
         for english_word in words_without_imgs:
-            translated_word = word_translation_pairs.get_translation(english_word)
-            logging.error('Couldn\'t find images for: %s / %s' % (english_word, translated_word))
+            logging.warning('Couldn\'t find images for: %s / %s' % (english_word, translated_word))
         for translated_word in words_without_audio:
-            english_word = word_translation_pairs.get_english(translated_word)
-            logging.error('Couldn\'t find audio for:  %s / %s' % (english_word, translated_word))
+            logging.warning('Couldn\'t find audio for:  %s / %s' % (
+                word_translation_pairs.get_english(translated_word), translated_word))
         english_words_to_remove = set(words_without_imgs).union(
             set([word_translation_pairs.get_english(x) for x in words_without_audio]))
-        for english_word in english_words_to_remove:
-            translated_word = word_translation_pairs.get_translation(english_word)
-            if translated_word in filenames_to_write_auds:
-                del filenames_to_write_auds[translated_word]
-            if english_word in filenames_to_write_imgs:
-                del filenames_to_write_imgs[english_word]
-            word_translation_pairs.remove_translated_word(translated_word)
+        _remove_words(english_words_to_remove, filenames_to_write_auds, filenames_to_write_imgs, word_translation_pairs)
 
     # Sanity check that all files now exist.
     if not FLAGS.disable_image_fetching:
         _files_exist(filenames_to_write_imgs.values())
-        _files_exist(filenames_to_write_auds.values())
+    _files_exist(filenames_to_write_auds.values())
     logging.info('Wrote media files to: %s', FLAGS.output_dir)
 
     # Write CSV that can be imported into an Anki deck.
@@ -266,11 +276,7 @@ def main(argv=None):
         filenames_to_write_imgs,
         filenames_to_write_auds,
         extra_info=word_translation_pairs.extra_info)
-    # We need to set a custom dialect to avoid double-quoting quotation marks.
-    csv.register_dialect('mydialect', delimiter=';', doublequote=False, quotechar='\'')
-    with open(FLAGS.output_csv_file, 'w') as csvfile:
-        writer = csv.writer(csvfile, dialect='mydialect')
-        writer.writerows(csv_rows)
+    _write_csv_rows(csv_rows, FLAGS.output_csv_file)
     logging.warning('Wrote Anki import csv to: %s', FLAGS.output_csv_file)
 
 
