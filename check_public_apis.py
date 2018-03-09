@@ -42,7 +42,7 @@ def test_get_audio(credentials):
         'מים': tempfile.mktemp(),
     }
     assert not os.path.exists(filenames_to_write_imgs['מים'])
-    audio.get_audio(word_list, credentials)
+    audio.get_audio(filenames_to_write_imgs, credentials)
     assert os.path.exists(filenames_to_write_imgs['מים'])
 
 
