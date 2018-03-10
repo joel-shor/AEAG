@@ -68,10 +68,10 @@ def make_csv_format(translation_dict, image_dict, audio_dict, extra_info=None):
 
     # Construct rows.
     if extra_info:
-        return ((eng, trans, _img_format(image_dict[eng]), _mp3_format(audio_dict[trans])) +
+        return ((_img_format(image_dict[eng]), trans, _mp3_format(audio_dict[trans]), eng) +
                 tuple(extra_info.get(eng, []))
                 for eng, trans in translation_dict.items())
     else:
-        return ((eng, trans, _img_format(image_dict[eng]), _mp3_format(audio_dict[trans]))
+        return ((_img_format(image_dict[eng]), trans, _mp3_format(audio_dict[trans]), eng)
                 for eng, trans in translation_dict.items())
 

@@ -24,10 +24,12 @@ import os
 import shutil
 import urllib
 
+import imghdr
+
 from googleapiclient.discovery import build
 
 
-def _fetch_single_image(word, destination_fn, service, credentials):
+def _fetch_single_image(word, destination_fn, service, credentials, max_tries=5):
     """Copies a web image to a destination on the local disk.
 
     Args:
@@ -37,24 +39,34 @@ def _fetch_single_image(word, destination_fn, service, credentials):
         credentials: The credentials object.
 
     Returns:
-        `word` if the fetch failed, else `None`.
+        `True` on success, `False` otherwise.
     """
     res = service.cse().list(
         q=word,
         cx=credentials.images.cxString,
         searchType="image",
-        fileType="jpg",  # this is just to match the filename template defined in `main.py`
-        num=1).execute()
-    img_url = res['items'][0]['link']
-    try:
-        logging.info('about to retrieve: %s', word)
-        urllib.urlretrieve(img_url, destination_fn)
-        logging.info('retrieved: %s', word)
-    except Exception as e:
-        logging.error('Failed on word/url: %s/%s' % (word, img_url))
-        logging.info(e)
-        return word
-    return None
+        fileType="png",  # this is just to match the filename template defined in `main.py`
+        num=max_tries).execute()
+
+    # Copy images to disk until one works, or we run out of images and give up.
+    for search_result in res['items']:
+        img_url = search_result['link']
+        try:
+            logging.info('about to retrieve: %s', word)
+            urllib.urlretrieve(img_url, destination_fn)
+            logging.info('retrieved: %s', word)
+        except Exception as e:
+            logging.error('Failed on word / url: %s / %s', word, img_url)
+            logging.info(e)
+            continue
+
+        # Verify that the file is readable.
+        if not imghdr.what(destination_fn):
+            logging.error('Downloaded image, but was unreadable: word / filename: %s / %s', word, destination_fn)
+            continue
+        return True
+
+    return False
 
 
 def get_images(filenames_to_write_imgs, credentials):
@@ -85,7 +97,7 @@ def get_images(filenames_to_write_imgs, credentials):
     # TODO(joelshor): Use `multiprocessing.Pool` to fetch many images in parallel.
     words_that_failed = []
     for word, destination_fn in filenames_to_write_imgs.items():
-        if _fetch_single_image(word, destination_fn, service, credentials):
+        if not _fetch_single_image(word, destination_fn, service, credentials):
             words_that_failed.append(word)
 
     return words_that_failed

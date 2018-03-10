@@ -1,13 +1,18 @@
 '''Main entry point for EasyAnki, the easy way to make Anki flashcards.
 
 The program does the following:
-1) Parses a table from disk containing Enlgish words, translations, and optional side info.
-2) Finds a representative image from the web or from disk.
-3) Finds a native speaker audio file for the word, from the web or from disk.
-4) Writes everything to a target directory.
-5) Writes a CSV with the card info that can be imported into an Anki deck.
+1) Parses a table from disk containing English words.
+2) Translates the English words into a foreign language.
+3) Finds a representative image from the web or from disk. NOTE: We search images in English, not the translated
+ language, for two reasons:
+ a) English Image search is better than in most languages
+ b) Some languages have specific problems. For instance, in Hebrew, `foreign` and `flower` map to the same word, so
+    images for `foreign` are incorrect.
+4) Finds a native speaker audio file for the word, from the web or from disk.
+5) Writes everything to a target directory.
+6) Writes a CSV with the card info that can be imported into an Anki deck.
 '''
-# TODO(joelshor): If the downloaded image isn't a jpg, images breaks.
+
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
@@ -54,6 +59,10 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
         help='If `True`, don\'t fetch or copy images. Images pose a difficult semantic problem, since top image '
              'search results are often pop-culture references, and not really what we want.'
              'NOTE: we still write image file locations to the Anki import CSV, but we can simply ignore it on import.')
+    self.add_argument(
+        '--override_images',
+        action='store_true',
+        help='If `True`, copy over already existing images.')
 
     # Output arguments.
     self.add_argument(
@@ -76,8 +85,8 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
 NUM_INPUT_FILE_FIELDS = 3
 # TODO(joelshor): This is a bug; some fetched images have different file formats (ex png),
 # and saving them as `jpg` causes them to be unreadable. Fix this.
-IMAGE_FILENAME_FORMAT = '%s.jpg'  # image filename to write if fetched from web
-AUDIO_FILENAME_FORMAT = '%s.mp3'  # audio filename to write if fetched from web
+IMAGE_FILENAME_FORMAT = '{english}.png'  # image filename to write if fetched from web
+AUDIO_FILENAME_FORMAT = '{translation}.mp3'  # audio filename to write if fetched from web
 
 class WordTranslationPairs(object):
     """A thin wrapper around a list of tuples."""
@@ -172,6 +181,7 @@ def _files_exist(filename_list):
         if not os.path.exists(filename):
             raise ValueError('`%s` should have existed, but it doesn\'t.' % filename)
 
+
 def _remove_words(english_words_to_remove, filenames_to_write_auds, filenames_to_write_imgs, word_translation_pairs):
     for english_word in english_words_to_remove:
         translated_word = word_translation_pairs.get_translation(english_word)
@@ -186,7 +196,7 @@ def remove_existing_filenames(full_filenames, target_dir):
     """Removes arguments corresponding to media that already exists.
 
     Args:
-        filename_dict: A dictionary of {word: filenames}.
+        full_filenames: A dictionary of {word: filenames}.
         target_dir: The directory to check for name collisions.
 
     Raises:
@@ -226,10 +236,10 @@ def main(argv=None):
     # Determine full filename where media should be written to.
     # If the media is already fetched, we still want to write it to the CSV, but we don't want to fetch it.
     filenames_to_write_imgs = {
-        word: os.path.join(FLAGS.output_dir, IMAGE_FILENAME_FORMAT % word) for word in
+        word: os.path.join(FLAGS.output_dir, IMAGE_FILENAME_FORMAT.format(english=word)) for word in
         word_translation_pairs.english_words}
     filenames_to_write_auds = {
-        word: os.path.join(FLAGS.output_dir, AUDIO_FILENAME_FORMAT % word) for word in
+        word: os.path.join(FLAGS.output_dir, AUDIO_FILENAME_FORMAT.format(translation=word)) for word in
         word_translation_pairs.translations}
 
     # The media we write might be different than the media that we fetch, if some media already exists. Make a copy
@@ -240,7 +250,8 @@ def main(argv=None):
         filenames_to_fetch_imgs = {k: v for k, v in filenames_to_write_imgs.items()}
     filenames_to_fetch_auds = {k: v for k, v in filenames_to_write_auds.items()}
     # NOTE: This function modifies the first argument.
-    remove_existing_filenames(filenames_to_fetch_imgs, FLAGS.output_dir)
+    if not FLAGS.override_images:
+        remove_existing_filenames(filenames_to_fetch_imgs, FLAGS.output_dir)
     remove_existing_filenames(filenames_to_fetch_auds, FLAGS.output_dir)
 
     # Get images, and audio.
@@ -256,10 +267,11 @@ def main(argv=None):
 
         # Remove words without audio or image from flashcard list *to write to csv*.
         for english_word in words_without_imgs:
-            logging.warning('Couldn\'t find images for: %s / %s' % (english_word, translated_word))
+            translated_word = word_translation_pairs.get_translation(english_word)
+            logging.warning('Couldn\'t find image for: %s / %s', english_word, translated_word)
         for translated_word in words_without_audio:
-            logging.warning('Couldn\'t find audio for:  %s / %s' % (
-                word_translation_pairs.get_english(translated_word), translated_word))
+            english_word = word_translation_pairs.get_english(translated_word)
+            logging.warning('Couldn\'t find audio for:  %s / %s', english_word, translated_word)
         english_words_to_remove = set(words_without_imgs).union(
             set([word_translation_pairs.get_english(x) for x in words_without_audio]))
         _remove_words(english_words_to_remove, filenames_to_write_auds, filenames_to_write_imgs, word_translation_pairs)
