@@ -3,11 +3,8 @@
 
  APIs that are checked:
  - Images
-
- TODO(joelshor): Add checks for:
  - Audio
  - Translations
-
  """
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
