@@ -1,23 +1,21 @@
-"""EasyAnki translation stuff.
+"""Queries Google's Translate API for translations.
 
-TODO(joelshor): Make sure this is all accurate.
-
-This uses Google's Client Translation API. More details can be found at:
+This uses Google's Client Translation API. We use this API rather than the Cloud API because not all services we want
+for this project are migrated to the Clout API. More details can be found at:
 https://developers.google.com/api-client-library/python/apis/translate/v2
 
 Follow the instructions there to download the Google API Python client. It might
 be as simple as running:
 
-pip install --upgrade google-cloud-translate
+pip install --upgrade google-api-python-client
 
-A canonical example for using Image Search can be found at:
+A canonical example for using Translate can be found at:
 https://github.com/google/google-api-python-client/tree/master/samples/translate
 """
 
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
-# Imports the Google Cloud client library
 from googleapiclient.discovery import build
 
 
@@ -50,6 +48,7 @@ def get_translations(word_list, credentials, target_language='iw', max_words=100
     for translated_word in translated_words:
         assert isinstance(translated_word, str)  # not unicode!!
     return translated_words
+
 
 def strip_diacritics(word_list):
     """Strips words of diacritic marks.

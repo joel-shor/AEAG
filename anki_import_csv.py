@@ -1,4 +1,8 @@
-"""Formats file names and content for importing into Anki."""
+"""Formats file names and content for importing into Anki.
+
+Specifically, `make_csv_rows` produces output that can be directly written to a CSV file and imported by the Anki
+card import mechanism.
+"""
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 

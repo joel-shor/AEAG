@@ -1,4 +1,4 @@
-"""EasyAnki images stuff.
+"""Queries a Google Custom Search Engine for images.
 
 This uses Google's `Custom Search API`. More details can be found at:
 https://developers.google.com/custom-search/

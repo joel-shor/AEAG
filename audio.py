@@ -1,10 +1,9 @@
-"""EasyAnki audio stuff.
+"""Manages native speaker audio.
 
-https://github.com/dveselov/python-yandex-translate
-
-Might have to do:
-
-pip install yandex_speech
+Currently, this file supports:
+1) Copying existing audio to a desired location
+2) Fetching native speaker audio from Forvo.com, using their API
+TODO(joelshor): Add support for Google TTS.
 """
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
@@ -18,13 +17,12 @@ import urllib
 import forvo_utils
 
 
-# Possibly also use Forvo: https://github.com/nosamanuel/pyforvo
-
 def get_audio(filenames_to_write_imgs, credentials, method='Forvo'):
     """Fetch audio from the web.
 
     Args:
         filenames_to_write_imgs: A dictionary of {translated word: full filename to copy audio to}.
+        credentials: A credentials object.
         method: A string describing how to fetch audio. It's basically a switch
             between entirely different codepathes.
 

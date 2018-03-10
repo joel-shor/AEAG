@@ -1,10 +1,7 @@
-"""EasyAnki audio stuff.
+"""Utilities for getting native speaker audio from Forvo.com.
 
-https://github.com/dveselov/python-yandex-translate
-
-Might have to do:
-
-pip install yandex_speech
+`get_mp3_link` queries Forvo.com for a given word in a given language, and returns the download URL of the audio file
+from the XML response.
 """
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'

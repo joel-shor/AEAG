@@ -20,6 +20,5 @@ class TestTranslations(unittest.TestCase):
             translation.strip_diacritics(words_with_diacritics))
 
 
-
 if __name__ == '__main__':
     unittest.main()
