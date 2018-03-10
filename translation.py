@@ -16,38 +16,67 @@ https://github.com/google/google-api-python-client/tree/master/samples/translate
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
 
+import string
+
 from googleapiclient.discovery import build
 
 
-def get_translations(word_list, credentials, target_language='iw', max_words=100):
-    """Translate list of words.
+def _is_english(word):
+    # NOTE: This is a hack for sorting between English and Hebrew, which have disjoint character sets. This will have
+    # to be made more general (ex perhaps with `langdetect`) for more languages.
+    return set(word).issubset(set(string.printable))
+
+
+def get_translations(single_words, credentials, target_language='iw', max_words=100):
+    """Translate list of words from English to target language or the reverse.
 
     Args:
-        word_list: A Python list of English words.
+        single_words: A Python list of single words. Each word can be English or foreign.
         credentials: A object with Google Translate credentials.
         target_language: Language code of target language.
         max_words: Google translate API only translates a few words at a time, so batch them.
 
     Return:
-        A list of translations.
+        A 2-tuple of (English word list, translation word list).
     """
+    # Sort words into foreign or not.
+    english_words = []
+    foreign_words = []
+    for word in single_words:
+        english_words.append(word) if _is_english(word) else foreign_words.append(word)
+
     # Build a service object for interacting with the API. Visit
     # the Google APIs Console <http://code.google.com/apis/console>
     # to get an API key for your own application.
     service = build('translate', 'v2', developerKey=credentials.translate.developerKey)
-    translated_words = []
-    for batch_i in xrange(0, len(word_list), max_words):
+    word_pairs = []
+    for batch_i in xrange(0, len(english_words), max_words):
+        cur_english_words = english_words[batch_i: batch_i + max_words]
         translations = service.translations().list(
             source='en',
             target=target_language,
-            q=word_list[batch_i: batch_i + max_words],
+            q=cur_english_words,
         ).execute()
-        translated_words.extend([x['translatedText'].encode('utf-8') for x in translations['translations']])
-    assert isinstance(translated_words, list)
-    assert len(translated_words) == len(word_list)
-    for translated_word in translated_words:
-        assert isinstance(translated_word, str)  # not unicode!!
-    return translated_words
+        cur_foreign_words = [x['translatedText'].encode('utf-8') for x in translations['translations']]
+        word_pairs.extend(zip(cur_english_words, cur_foreign_words))
+    for batch_i in xrange(0, len(foreign_words), max_words):
+        cur_foreign_words = foreign_words[batch_i: batch_i + max_words]
+        decoded_foreign_words = [x.decode('utf-8') for x in cur_foreign_words]
+        translations = service.translations().list(
+            source=target_language,
+            target='en',
+            q=decoded_foreign_words,
+        ).execute()
+        cur_english_words = [x['translatedText'].encode('utf-8') for x in translations['translations']]
+        word_pairs.extend(zip(cur_english_words, cur_foreign_words))
+    english_words, translated_words = zip(*word_pairs)
+
+    for word_list in [english_words, translated_words]:
+        assert isinstance(word_list, tuple)
+        assert len(word_list) == len(single_words)
+        for word in word_list:
+            assert isinstance(word, str)  # not unicode!!
+    return english_words, translated_words
 
 
 def strip_diacritics(word_list):

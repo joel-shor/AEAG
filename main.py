@@ -1,8 +1,8 @@
 '''Main entry point for EasyAnki, the easy way to make Anki flashcards.
 
 The program does the following:
-1) Parses a table from disk containing English words.
-2) Translates the English words into a foreign language.
+1) Parses a table from disk containing English words and/or foreign words.
+2) Translates the English words into a foreign language, and foreign words to English.
 3) Finds a representative image from the web or from disk. NOTE: We search images in English, not the translated
  language, for two reasons:
  a) English Image search is better than in most languages
@@ -165,15 +165,15 @@ def parse_word_translation_csv(input_filename, delimiter=","):
     return WordTranslationPairs(word_translation_pairs)
 
 
-def parse_english_only_csv(input_filename):
+def parse_single_word_csv(input_filename):
     with open(input_filename, 'r') as f:
         lines = f.readlines()
     reader = csv.reader(lines, doublequote=True)
-    english_only = [row for row in reader]
-    for word in english_only:
+    single_word = [row for row in reader]
+    for word in single_word:
         if len(word) > 1:
             raise ValueError('Malformed input: %s' % word)
-    return [x[0] for x in english_only]
+    return [x[0] for x in single_word]
 
 
 def _files_exist(filename_list):
@@ -225,8 +225,8 @@ def main(argv=None):
     if FLAGS.input_includes_translations:
         word_translation_pairs = parse_word_translation_csv(FLAGS.input_file)
     else:
-        english_words = parse_english_only_csv(FLAGS.input_file)
-        translated_words = translate_lib.get_translations(english_words, credentials)
+        single_words = parse_single_word_csv(FLAGS.input_file)
+        english_words, translated_words = translate_lib.get_translations(single_words, credentials)
         logging.info('Translated %i words.' % len(translated_words))
         translated_words_no_diacritics = translate_lib.strip_diacritics(translated_words)
         word_translation_pairs = WordTranslationPairs(
