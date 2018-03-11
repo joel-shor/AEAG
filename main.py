@@ -207,7 +207,7 @@ def remove_existing_filenames(full_filenames, target_dir):
     for word, basename in basenames.items():
         if os.path.isfile(os.path.join(target_dir, basename)):
             del full_filenames[word]
-            logging.info('%s already exists, so deleting %s.' % (basename, word))
+            logging.info('%s already exists, so removing %s from current search.' % (basename, word))
 
 
 def _write_csv_rows(csv_rows, output_csv_file):
