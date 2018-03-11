@@ -1,5 +1,7 @@
 # NEAG (aNother Easy Anki Generator)
 
+Spend your time learning a language, not making flashcards
+
 By shor.joel@gmail.com (Joel Shor)
 ## Intro
 
@@ -9,11 +11,11 @@ the most useful language-learning flashcards only have the target language, imag
 
 This program does the following:
 
-####Input:
+#### Input:
 
 1) A CSV of English words
 
-####Actions:
+#### Actions:
 
 1) Translates words to target language
 1) Performs extra behavior (like stripping diacritics, if necessary)
@@ -22,7 +24,7 @@ This program does the following:
 1) Writes media files to Anki's media directory
 1) Generates a CSV file so Anki can import the words and media
 
-####Outputs:
+#### Outputs:
 
 1) Writes images and audio to the target directory (often the Anki media directory)
 1) Writes a CSV file with English, translation, audio, image, and side information
@@ -85,3 +87,4 @@ python main.py \
 --already_downloaded_media_dir=/path/to/downloaded/media
 ```
 
+That's it!
