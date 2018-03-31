@@ -28,16 +28,16 @@ def _validate_inputs(translation_dict, image_dict, audio_dict, extra_info):
     assert isinstance(image_dict, dict)
     if len(image_dict) != expected_size:
         raise ValueError('Image dictionary was expected to be size %i, but '
-                         'instead was size %i' % (len(image_dict), expected_size))
+                         'instead was size %i' % (expected_size, len(image_dict)))
     assert isinstance(audio_dict, dict)
     if len(audio_dict) != expected_size:
         raise ValueError('Audio dictionary was expected to be size %i, but '
-                         'instead was size %i' % (len(audio_dict), expected_size))
+                         'instead was size %i' % (expected_size, len(audio_dict)))
     if extra_info:
         assert isinstance(extra_info, dict)
         if len(extra_info) != expected_size:
             raise ValueError('Extra info dictionary was expected to be size %i, but '
-                             'instead was size %i' % (len(extra_info), expected_size))
+                             'instead was size %i' % (expected_size, len(extra_info)))
 
     # English lists and translation lists should be the same.
     if set(translation_dict.keys()) != set(image_dict.keys()):
