@@ -218,6 +218,12 @@ def _write_csv_rows(csv_rows, output_csv_file):
         writer.writerows(csv_rows)
 
 
+def _check_unique(translated_words_no_diacritics):
+    for i, w in enumerate(translated_words_no_diacritics[1:]):
+        if w in translated_words_no_diacritics[:i+1]:
+            raise ValueError('`%s` is duplicated in translations.' % w)
+
+
 def main(argv=None):
     del argv
 
@@ -229,6 +235,7 @@ def main(argv=None):
         english_words, translated_words = translate_lib.get_translations(single_words, credentials)
         logging.info('Translated %i words.' % len(translated_words))
         translated_words_no_diacritics = translate_lib.strip_diacritics(translated_words)
+        _check_unique(translated_words_no_diacritics)
         word_translation_pairs = WordTranslationPairs(
             zip(english_words, translated_words_no_diacritics, translated_words))
     assert isinstance(word_translation_pairs, WordTranslationPairs)

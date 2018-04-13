@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 """Formats file names and content for importing into Anki.
 
-Specifically, `make_csv_rows` produces output that can be directly written to a CSV file and imported by the Anki
-card import mechanism.
+Specifically, `make_csv_rows` produces output that can be directly written to a
+CSV file and imported by the Anki card import mechanism.
 """
 
 __author__ = 'shor.joel@gmail.com (Joel Shor)'
@@ -36,17 +37,27 @@ def _validate_inputs(translation_dict, image_dict, audio_dict, extra_info):
     if extra_info:
         assert isinstance(extra_info, dict)
         if len(extra_info) != expected_size:
-            raise ValueError('Extra info dictionary was expected to be size %i, but '
-                             'instead was size %i' % (expected_size, len(extra_info)))
+            raise ValueError(
+                'Extra info dictionary was expected to be size %i, but instead '
+                'was size %i' % (expected_size, len(extra_info)))
 
     # English lists and translation lists should be the same.
     if set(translation_dict.keys()) != set(image_dict.keys()):
-        raise ValueError('English words in translation dictionary and image dictionary need to be the same.')
+        raise ValueError('English words in translation dictionary and image '
+                         'dictionary need to be the same.')
     if extra_info:
         if not set(extra_info.keys()).issubset(translation_dict.keys()):
-            raise ValueError('English words in extra info must be a subset of English words in translation dictionary.')
+            raise ValueError('English words in extra info must be a subset of '
+                             'English words in translation dictionary.')
     if set(translation_dict.values()) != set(audio_dict.keys()):
-        raise ValueError('Translations in translation dictionary and audio dictionary need to be the same.')
+        sym_diff = set(translation_dict.values()).symmetric_difference(
+            set(audio_dict.keys()))
+        # TODO(joelshor): This often doesn't print properly. Fix it.
+        raise ValueError('Translations in translation dictionary and audio '
+                         'dictionary need to be the same.\n'
+                         'Len translation dict: %i\n'
+                         'Len audio dict: %i\n'
+                         'Different elements: %s ' % (len(translation_dict), len(audio_dict), sym_diff))
 
 
 def make_csv_format(translation_dict, image_dict, audio_dict, extra_info=None):
