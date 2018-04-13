@@ -40,12 +40,6 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
         default='',
         help='The location of the input file. Must be a comma-separated CSV file. The format depends on other input '
              'arguments.')
-    self.add_argument(
-        '--input_includes_translations',
-        action='store_true',
-        help='If `False`, input CSV file is just a list of newline-separated English words. If `True`, input CSV must '
-             'be in the following format: '
-             '`English`,`Translation without diacritics`,`Optional translation with diacritics`.')
 
     # Arguments controlling media behavior.
     self.add_argument(
@@ -83,28 +77,36 @@ class EasyAnkiArgParser(argparse.ArgumentParser):
 
 
 NUM_INPUT_FILE_FIELDS = 3
-# TODO(joelshor): This is a bug; some fetched images have different file formats (ex png),
-# and saving them as `jpg` causes them to be unreadable. Fix this.
-IMAGE_FILENAME_FORMAT = '{english}.png'  # image filename to write if fetched from web
-AUDIO_FILENAME_FORMAT = '{translation}.mp3'  # audio filename to write if fetched from web
+IMAGE_FILENAME_FORMAT = '{english}.png'  # image filename to write
+AUDIO_FILENAME_FORMAT = '{translation}.mp3'  # audio filename to write
 
 class WordTranslationPairs(object):
     """A thin wrapper around a list of tuples."""
     def __init__(self, tuple_list, english_index=0, translation_index=1):
-        self._tuple_list = tuple_list
         self._english_index = english_index
         self._translation_index = translation_index
-        self._validate_tuple_list()
+        self._tuple_list = self._normalize_tuple_list(tuple_list)
 
-    def _validate_tuple_list(self):
-        """Check that tuples have the right number of elements."""
-        assert self._tuple_list
-        for tpl in self._tuple_list:
+    def _normalize_tuple_list(self, tuple_list):
+        """Make sure that tuples have the right number of elements."""
+        new_tuple_list = []
+        for tpl in tuple_list:
             if len(tpl) != NUM_INPUT_FILE_FIELDS:
-                raise ValueError(
-                    "Tuple %s had %i fields instead of the expected "
-                    "number: %i" % (tpl, len(tpl), NUM_INPUT_FILE_FIELDS))
+                if len(tpl) == 2:
+                    # If we just have a word and a translation, make the rest
+                    # empty strings.
+                    new_tpl = [""] * NUM_INPUT_FILE_FIELDS
+                    new_tpl[self._english_index] = tpl[self._english_index]
+                    new_tpl[self._translation_index] = tpl[
+                        self._translation_index]
+                    tpl = tuple(new_tpl)
+                else:
+                    raise ValueError(
+                        "Tuple %s had %i fields instead of the expected "
+                        "number: %i" % (tpl, len(tpl), NUM_INPUT_FILE_FIELDS))
             assert len(tpl) == NUM_INPUT_FILE_FIELDS
+            new_tuple_list.append(tpl)
+        return new_tuple_list
 
     @property
     def english_words(self):
@@ -120,14 +122,16 @@ class WordTranslationPairs(object):
 
     @property
     def translation_dict(self):
-        return {x[self._english_index]: x[self._translation_index] for x in self.data}
+        return {x[self._english_index]: x[self._translation_index] for x in
+                self.data}
 
     def get_translation(self, english_word):
         return self.translation_dict[english_word]
 
     @property
     def reverse_translation_dict(self):
-        return {x[self._translation_index]: x[self._english_index] for x in self.data}
+        return {x[self._translation_index]: x[self._english_index] for x in
+                self.data}
 
     def get_english(self, translated_word):
         return self.reverse_translation_dict[translated_word]
@@ -151,9 +155,18 @@ class WordTranslationPairs(object):
                 index = i
                 break
         if index == -1:
-            raise ValueError('Tried to deleted translated word `%s`, but couldn\'t find it in the word list.' %
+            raise ValueError('Tried to deleted translated word `%s`, but '
+                             'couldn\'t find it in the word list.' %
                              translated_word)
         del self._tuple_list[index]
+
+
+def _num_elements_in_first_row(input_filename, delimiter=","):
+    """Parses input file and returns a `WordTranslationPairs`."""
+    with open(input_filename, 'r') as f:
+        lines = f.readlines()
+    reader = csv.reader(lines, delimiter=delimiter, doublequote=True)
+    return sum([x != '' for x in reader.next()])
 
 
 def parse_word_translation_csv(input_filename, delimiter=","):
@@ -179,10 +192,12 @@ def parse_single_word_csv(input_filename):
 def _files_exist(filename_list):
     for filename in filename_list:
         if not os.path.exists(filename):
-            raise ValueError('`%s` should have existed, but it doesn\'t.' % filename)
+            raise ValueError('`%s` should have existed, but it doesn\'t.' %
+                             filename)
 
 
-def _remove_words(english_words_to_remove, filenames_to_write_auds, filenames_to_write_imgs, word_translation_pairs):
+def _remove_words(english_words_to_remove, filenames_to_write_auds,
+                  filenames_to_write_imgs, word_translation_pairs):
     for english_word in english_words_to_remove:
         translated_word = word_translation_pairs.get_translation(english_word)
         if translated_word in filenames_to_write_auds:
@@ -207,12 +222,14 @@ def remove_existing_filenames(full_filenames, target_dir):
     for word, basename in basenames.items():
         if os.path.isfile(os.path.join(target_dir, basename)):
             del full_filenames[word]
-            logging.info('%s already exists, so removing %s from current search.' % (basename, word))
+            logging.info('%s already exists, so removing %s from current '
+                         'search.' % (basename, word))
 
 
 def _write_csv_rows(csv_rows, output_csv_file):
     # We need to set a custom dialect to avoid double-quoting quotation marks.
-    csv.register_dialect('mydialect', delimiter=';', doublequote=False, quotechar='\'')
+    csv.register_dialect(
+        'mydialect', delimiter=';', doublequote=False, quotechar='\'')
     with open(output_csv_file, 'w') as csvfile:
         writer = csv.writer(csvfile, dialect='mydialect')
         writer.writerows(csv_rows)
@@ -227,17 +244,21 @@ def _check_unique(translated_words_no_diacritics):
 def main(argv=None):
     del argv
 
-    # Parse input CSV file. The expected format of the input file depends on commandline arguments.
-    if FLAGS.input_includes_translations:
-        word_translation_pairs = parse_word_translation_csv(FLAGS.input_file)
-    else:
+    # Parse input CSV file. Infer the expected format by peaking at the number
+    # of elements in the first line.
+    if _num_elements_in_first_row(FLAGS.input_file) == 1:
         single_words = parse_single_word_csv(FLAGS.input_file)
-        english_words, translated_words = translate_lib.get_translations(single_words, credentials)
+        english_words, translated_words = translate_lib.get_translations(
+            single_words, credentials)
         logging.info('Translated %i words.' % len(translated_words))
-        translated_words_no_diacritics = translate_lib.strip_diacritics(translated_words)
+        translated_words_no_diacritics = translate_lib.strip_diacritics(
+            translated_words)
         _check_unique(translated_words_no_diacritics)
         word_translation_pairs = WordTranslationPairs(
-            zip(english_words, translated_words_no_diacritics, translated_words))
+            zip(english_words, translated_words_no_diacritics,
+                translated_words))
+    else:
+        word_translation_pairs = parse_word_translation_csv(FLAGS.input_file)
     assert isinstance(word_translation_pairs, WordTranslationPairs)
 
     # Determine full filename where media should be written to.
