@@ -252,8 +252,6 @@ def main(argv=None):
     # of elements in the first line.
     if _num_elements_in_first_row(FLAGS.input_file) == 1:
         single_words = parse_single_word_csv(FLAGS.input_file)
-        if not _all_unique(single_words):
-            raise ValueError('Not all words are unique.')
         english_words, translated_words = translate_lib.get_translations(
             single_words, credentials)
         logging.info('Translated %i words.' % len(translated_words))
@@ -266,6 +264,10 @@ def main(argv=None):
     else:
         word_translation_pairs = parse_word_translation_csv(FLAGS.input_file)
     assert isinstance(word_translation_pairs, WordTranslationPairs)
+    if not _all_unique(word_translation_pairs.english_words):
+        raise ValueError('Not all words are unique.')
+    if not _all_unique(word_translation_pairs.translations):
+        raise ValueError('Not all translations are unique.')
 
     # Determine full filename where media should be written to.
     # If the media is already fetched, we still want to write it to the CSV, but
