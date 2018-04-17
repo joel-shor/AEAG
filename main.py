@@ -241,6 +241,10 @@ def _check_unique(translated_words_no_diacritics):
             raise ValueError('`%s` is duplicated in translations.' % w)
 
 
+def _all_unique(word_list):
+    return len(word_list) == len(set(word_list))
+
+
 def main(argv=None):
     del argv
 
@@ -248,6 +252,8 @@ def main(argv=None):
     # of elements in the first line.
     if _num_elements_in_first_row(FLAGS.input_file) == 1:
         single_words = parse_single_word_csv(FLAGS.input_file)
+        if not _all_unique(single_words):
+            raise ValueError('Not all words are unique.')
         english_words, translated_words = translate_lib.get_translations(
             single_words, credentials)
         logging.info('Translated %i words.' % len(translated_words))
@@ -262,16 +268,19 @@ def main(argv=None):
     assert isinstance(word_translation_pairs, WordTranslationPairs)
 
     # Determine full filename where media should be written to.
-    # If the media is already fetched, we still want to write it to the CSV, but we don't want to fetch it.
+    # If the media is already fetched, we still want to write it to the CSV, but
+    # we don't want to fetch it.
     filenames_to_write_imgs = {
-        word: os.path.join(FLAGS.output_dir, IMAGE_FILENAME_FORMAT.format(english=word)) for word in
-        word_translation_pairs.english_words}
+        word: os.path.join(FLAGS.output_dir, IMAGE_FILENAME_FORMAT.format(
+            english=word)) for word in word_translation_pairs.english_words}
     filenames_to_write_auds = {
-        word: os.path.join(FLAGS.output_dir, AUDIO_FILENAME_FORMAT.format(translation=word)) for word in
-        word_translation_pairs.translations}
+        word: os.path.join(FLAGS.output_dir, AUDIO_FILENAME_FORMAT.format(
+            translation=word)) for word in word_translation_pairs.translations}
 
-    # The media we write might be different than the media that we fetch, if some media already exists. Make a copy
-    # of the media list so we can track media to fetch, and remove entries corresponding to media that already exists.
+    # The media we write might be different than the media that we fetch, if
+    # some media already exists. Make a copy
+    # of the media list so we can track media to fetch, and remove entries
+    # corresponding to media that already exists.
     if FLAGS.disable_image_fetching:
         filenames_to_fetch_imgs = {}
     else:
@@ -283,26 +292,34 @@ def main(argv=None):
     remove_existing_filenames(filenames_to_fetch_auds, FLAGS.output_dir)
 
     # Get images, and audio.
-    # TODO(joelshor): Try to combine approaches and fetch media if it doesn't exist.
+    # TODO(joelshor): Try to combine approaches and fetch media if it doesn't
+    # exist.
     if FLAGS.already_downloaded_media_dir:
         images_lib.copy_images_from_disk(
             filenames_to_fetch_imgs, FLAGS.already_downloaded_media_dir)
         audio_lib.copy_audio_from_disk(
             filenames_to_fetch_auds, FLAGS.already_downloaded_media_dir)
     else:
-        words_without_imgs = images_lib.get_images(filenames_to_fetch_imgs, credentials)
-        words_without_audio = audio_lib.get_audio(filenames_to_fetch_auds, credentials)
+        words_without_imgs = images_lib.get_images(
+            filenames_to_fetch_imgs, credentials)
+        words_without_audio = audio_lib.get_audio(
+            filenames_to_fetch_auds, credentials)
 
-        # Remove words without audio or image from flashcard list *to write to csv*.
+        # Remove words without audio or image from flashcard list *to write to
+        # csv*.
         for english_word in words_without_imgs:
-            translated_word = word_translation_pairs.get_translation(english_word)
-            logging.warning('Couldn\'t find image for: %s / %s', english_word, translated_word)
+            translated_word = word_translation_pairs.get_translation(
+                english_word)
+            logging.warning('Couldn\'t find image for: %s / %s', english_word,
+                            translated_word)
         for translated_word in words_without_audio:
             english_word = word_translation_pairs.get_english(translated_word)
-            logging.warning('Couldn\'t find audio for:  %s / %s', english_word, translated_word)
+            logging.warning('Couldn\'t find audio for:  %s / %s', english_word,
+                            translated_word)
         english_words_to_remove = set(words_without_imgs).union(
             set([word_translation_pairs.get_english(x) for x in words_without_audio]))
-        _remove_words(english_words_to_remove, filenames_to_write_auds, filenames_to_write_imgs, word_translation_pairs)
+        _remove_words(english_words_to_remove, filenames_to_write_auds,
+                      filenames_to_write_imgs, word_translation_pairs)
 
     # Sanity check that all files now exist.
     if not FLAGS.disable_image_fetching:
@@ -330,6 +347,7 @@ def set_logging_level(log_level):
 if __name__ == "__main__":
     parser = EasyAnkiArgParser()
     FLAGS = parser.parse_args()
-    logging.getLogger('googleapiclient.discovery_cache').setLevel(logging.ERROR)  # disable annoying warning
+    logging.getLogger('googleapiclient.discovery_cache').setLevel(
+        logging.ERROR)  # disable annoying warning
     set_logging_level(FLAGS.log)
     main()

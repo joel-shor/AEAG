@@ -15,15 +15,17 @@ credentials = Credentials()
 credentials.images = Credentials()
 
 # From https://console.developers.google.com/apis/credentials
-credentials.images.developerKey = ''
+credentials.images.developerKey = 'AIzaSyCLUXhz2TGKs_4JZ12xPgyBXwgfvD13zz8'
 
 # Search Engine ID, from https://cse.google.com/cse/all.
-credentials.images.cxString = ''
+credentials.images.cxString = '005399444954916912786:zcgsandx3je'
 
 ######### CUSTOM AUDIO SEARCH CREDENTIALS ###############
 credentials.audio = Credentials()
 
-credentials.audio.forvoAPIKey = ''
+credentials.audio.yandexKey = 'trnsl.1.1.20180227T013535Z.cbdfcefc9e1e1fdd.6b6330f93a6ecf082b57c13fac030c7143dc0d12'
+
+credentials.audio.forvoAPIKey = '35a886e44bd9d1a7a46b2f80e3cb3701'
 
 ######### TRANSLATION CREDENTIALS ###############
 credentials.translate = Credentials()
